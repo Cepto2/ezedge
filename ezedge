@@ -1,0 +1,133 @@
+ocal Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
+local UserInputService = game:GetService("UserInputService")
+
+local BOOST_POWER = 80
+local MIN_Y_VELOCITY_TO_ACTIVATE = 1.0
+local isEnabled = true
+local Connection = nil
+local player = Players.LocalPlayer
+
+local function getCharacterAndHrp()
+    local character = player.Character or player.CharacterAdded:Wait()
+    local hrp = character:WaitForChild("HumanoidRootPart")
+    local humanoid = character:WaitForChild("Humanoid")
+    return character, hrp, humanoid
+end
+
+local character, hrp, humanoid = getCharacterAndHrp()
+local UP_VELOCITY = Vector3.new(0, BOOST_POWER, 0)
+
+local function isBouncePart(part)
+    local bounceKeywords = {
+        "bounce", "boost", "launch", "jump", "pad", "ramp", "platform"
+    }
+    
+    local name = string.lower(part.Name)
+    
+    for _, keyword in pairs(bounceKeywords) do
+        if name:find(keyword) then
+            return true
+        end
+    end
+    
+    if part.Parent and (part.Parent:IsA("Model") or part.Parent:IsA("Folder")) then
+        local parentName = string.lower(part.Parent.Name)
+        for _, keyword in pairs(bounceKeywords) do
+            if parentName:find(keyword) then
+                return true
+            end
+        end
+    end
+    
+    return false
+end
+
+local function applyEdgeBoost()
+    if not isEnabled or not hrp or not humanoid or humanoid.Health <= 0 then
+        return
+    end
+
+    local currentYVelocity = hrp.AssemblyLinearVelocity.Y
+    
+    if currentYVelocity < -MIN_Y_VELOCITY_TO_ACTIVATE then
+        
+        local touchingParts = hrp:GetTouchingParts()
+        local isTouchingEdge = false
+        local isTouchingBounce = false
+
+        if #touchingParts > 0 then
+            for _, part in pairs(touchingParts) do
+                if isBouncePart(part) then
+                    isTouchingBounce = true
+                    break
+                end
+            end
+            
+            if not isTouchingBounce then
+                isTouchingEdge = true
+            end
+        end
+
+        if isTouchingEdge then
+            
+            local currentHorizontalVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, 0, hrp.AssemblyLinearVelocity.Z)
+            
+            hrp.AssemblyLinearVelocity = currentHorizontalVelocity + UP_VELOCITY
+        end
+    end
+end
+
+local function toggleEdgeBoost()
+    if isEnabled then
+        isEnabled = false
+        if Connection then
+            Connection:Disconnect()
+            Connection = nil
+        end
+        StarterGui:SetCore("SendNotification", {
+            Title = "EDGE BOOST OFF",
+            Text = "Edge Boost disabled. Press V to re-enable.",
+            Duration = 1
+        })
+    else
+        local newChar, newHrp, newHum = getCharacterAndHrp()
+        character, hrp, humanoid = newChar, newHrp, newHum
+        
+        isEnabled = true
+        Connection = RunService.Stepped:Connect(applyEdgeBoost)
+        
+        StarterGui:SetCore("SendNotification", {
+            Title = "ULTRA EDGE BOOST V7",
+            Text = "Edge Boost enabled. Power: " .. BOOST_POWER .. ".",
+            Duration = 1
+        })
+    end
+end
+
+Connection = RunService.Stepped:Connect(applyEdgeBoost)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if input.KeyCode == Enum.KeyCode.V then
+        toggleEdgeBoost()
+    end
+end)
+
+task.wait(1)
+pcall(function()
+    StarterGui:SetCore("SendNotification", {
+        Title = "edge",
+        Text = "Enabled (V to toggle/refresh). Power set to 80.",
+        Duration = 1
+    })
+end)
+pcall(function()
+    StarterGui:SetCore("SendNotification", {
+        Title = "final delete",
+        Text = "i said only use it if wanna edge (it fucks up bouncing i think)",
+        Duration = 1
+    })
+end)
